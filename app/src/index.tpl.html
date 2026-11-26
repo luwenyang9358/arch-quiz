@@ -282,6 +282,14 @@ const Store = {
     this.data=Object.assign({rec:{},fav:{},wrong:{},pos:{},exam:[],cards:{},mock:null,mockHist:[]}, d);
     if(!this.data.cards) this.data.cards={};
     if(!this.data.mockHist) this.data.mockHist=[];
+    /* 能落盘吗？原生壳走文件桥，浏览器走 localStorage。
+       file:// 下个别浏览器会禁用 localStorage，必须让用户知道进度存不住。 */
+    const hasBridge = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.store);
+    this.persistOK = hasBridge;
+    if(!hasBridge){
+      try{ const k=this.key+'.probe'; localStorage.setItem(k,'1'); localStorage.removeItem(k); this.persistOK=true }
+      catch(e){ this.persistOK=false }
+    }
   },
   save(){
     const s=JSON.stringify(this.data);
@@ -290,6 +298,9 @@ const Store = {
     } else { try{ localStorage.setItem(this.key,s) }catch(e){} }
   },
   rec(id){ return this.data.rec[id] || (this.data.rec[id]={r:0,w:0,last:0}) },
+  /* 只读：不要用 rec()，它会在渲染时凭空造出一条作答记录，
+     把「已练题数」算成「翻过的题数」 */
+  peek(id){ return this.data.rec[id] || {r:0,w:0,last:0} },
   mark(id,right){
     const r=this.rec(id); right?r.r++:r.w++; r.last=right?1:2;
     if(right){ if(this.data.wrong[id]) delete this.data.wrong[id] } else { this.data.wrong[id]=1 }
@@ -324,7 +335,7 @@ function render(){
   $('#bgWrong').textContent = Store.wrongIds().length;
   $('#bgFav').textContent = Store.favIds().length;
   const ft=$('#ftCount'); if(ft) ft.textContent = '真题 '+BANK.length+' · 模拟 '+SIM.length+' · 精选 '+HIGH.length+(OLD.length?' · 早年 '+OLD.length:'');
-  const ft2=$('#ftCount2'); if(ft2) ft2.textContent = '卡片 '+CARDS_OK.length+' · 数据存于本机';
+  const ft2=$('#ftCount2'); if(ft2) ft2.textContent = '卡片 '+CARDS_OK.length+' · '+(Store.persistOK===false?'⚠ 进度无法保存':'数据存于本机');
   const bs=$('#brandSub'); if(bs) bs.textContent = '系统架构设计师 · '+ALL.length+' 题';
   const bc=$('#bgCard'); if(bc) bc.textContent = CARDS_OK.filter(c=>!(Store.data.cards[c.id]||{}).box).length;
   if(view==='quiz') return renderQuiz();
@@ -469,7 +480,7 @@ let timerH=null;
 function renderQuiz(){
   if(!S) { go('home'); return }
   if(S.idx>=S.pool.length) return finish();
-  const q=S.pool[S.idx], id=QID(q), st=Store.rec(id);
+  const q=S.pool[S.idx], id=QID(q), st=Store.peek(id);
   const picked=S.picks[id], judged=S.done[id];
   const n=S.pool.length, pct=Math.round((S.idx)/n*100);
 
@@ -626,7 +637,7 @@ function renderList(kind){
   const label = kind==='wrong'?'错题本':'收藏';
   const rows = ids.map(id=>{
     const q=byId[id]; if(!q) return '';
-    const r=Store.rec(id);
+    const r=Store.peek(id);
     return `<div class="item"><span class="tag">${q.year}</span>
       <span class="q">${esc(q.stem).slice(0,60)}</span>
       <span class="m">错 ${r.w} / 对 ${r.r}</span></div>`;
@@ -782,14 +793,45 @@ function rateCard(n){
 }
 
 /* ---- 导出 ---- */
+/* buildDoc() 产出的是 Markdown，macOS 版交给 Swift 转真 OOXML；
+   浏览器 / Windows 版没有这个桥，直接存 .docx 会得到打不开的乱码文件，
+   所以这里转成 Word 原生可读的 HTML 并改存 .doc。 */
+function mdToWord(t){
+  const out=[]; let inUl=false;
+  const closeUl=()=>{ if(inUl){ out.push('</ul>'); inUl=false } };
+  for(const raw of String(t).split('\n')){
+    const l=raw.trim(); let m;
+    if(!l){ closeUl(); continue }
+    if(m=l.match(/^#\s+(.*)$/)){ closeUl(); out.push('<h1>'+esc(m[1])+'</h1>'); continue }
+    if(m=l.match(/^#{2,6}\s+(.*)$/)){ closeUl(); out.push('<h2>'+esc(m[1])+'</h2>'); continue }
+    if(m=l.match(/^[-*]\s+(.*)$/)){
+      if(!inUl){ out.push('<ul>'); inUl=true }
+      out.push('<li>'+esc(m[1])+'</li>'); continue
+    }
+    closeUl(); out.push('<p>'+esc(l)+'</p>');
+  }
+  closeUl();
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" '+
+    'xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
+    '<head><meta charset="utf-8"><title>架构刷题导出</title><style>'+
+    'body{font-family:"PingFang SC","Microsoft YaHei",serif;font-size:11pt;line-height:1.75}'+
+    'h1{font-size:16pt;margin:0 0 8pt}h2{font-size:12pt;margin:14pt 0 4pt}'+
+    'ul{margin:4pt 0 4pt 18pt}p{margin:4pt 0}</style></head><body>'+
+    out.join('')+'</body></html>';
+}
 function nativeSave(filename, content, fmt){
   if(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.exportFile){
     window.webkit.messageHandlers.exportFile.postMessage({filename, content, fmt});
     return;
   }
-  const blob=new Blob(['\ufeff'+content],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+  const isDoc = fmt==='docx';
+  const name  = isDoc ? filename.replace(/\.docx$/i,'.doc') : filename;
+  const blob  = isDoc
+    ? new Blob(['\ufeff'+mdToWord(content)],{type:'application/msword;charset=utf-8'})
+    : new Blob(['\ufeff'+content],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
   document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
 }
 function qFrontHTML(q){
   const opts=q.groups.map(g=>g.items.map(o=>esc(o.k+'．'+o.t)).join('<br>')).join('<br>');
@@ -1238,7 +1280,7 @@ document.addEventListener('keydown', e=>{
     const gi=Math.max(0, q.groups.findIndex((g,i)=>!cur[i]));
     pick(gi, map[k]);
   }
-  else if(e.key==='ArrowRight'||e.key==='Enter'){ e.preventDefault(); if(S.exam){ nextQ() } else nextQ() }
+  else if(e.key==='ArrowRight'||e.key==='Enter'){ e.preventDefault(); nextQ() }
   else if(e.key==='ArrowLeft'){ e.preventDefault(); prevQ() }
   else if(k==='F'){ Store.toggleFav(QID(q)); renderQuiz() }
 });
