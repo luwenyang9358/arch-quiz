@@ -189,6 +189,9 @@ def extract_exp(ans_path, stems):
 
 def fix_stem(stem, no):
     """把残留空号（（7）/ 7）/ _7））统一成（  ）；共享题干可能含相邻题号，取 ±5 窗口"""
+    stem = stem.replace('●', '').replace('•', '')       # 题目项目符号
+    stem = re.sub(r'^[·\-—\s]+', '', stem)
+
     def rep(m):
         return '（  ）' if abs(int(m.group(1)) - no) <= 5 else m.group(0)
     stem = re.sub(r'[（(_\-–—「]?\s*(\d{1,2})\s*[)）」]', rep, stem)
