@@ -1,0 +1,14 @@
+# 构建产物
+build/
+app/index.html
+app/data/bank.json
+
+# 系统垃圾
+.DS_Store
+*.swp
+__pycache__/
+*.pyc
+
+# 导出样例
+*.docx
+anki_*.txt
