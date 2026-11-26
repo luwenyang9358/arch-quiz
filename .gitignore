@@ -1,7 +1,10 @@
 # 构建产物
 build/
 app/index.html
-app/data/bank.json
+
+# 题库内容（版权原因不进仓库，用 tools/ 下的脚本自行生成）
+app/data/*.json
+!app/data/demo.json
 
 # 系统垃圾
 .DS_Store

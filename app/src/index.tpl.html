@@ -249,10 +249,12 @@ table.ct td{border:1px solid #e3e6eb;padding:4px 6px;vertical-align:top}
 const BANK = __BANK__;
 const SIM  = __SIM__;
 const HIGH = __HIGH__;
+const OLD  = __OLD__;
 const CARDS = __CARDS__;
 const CARDS_OK = CARDS.filter(c=>c.back && c.back.length>=30);
-const ALL  = BANK.concat(SIM).concat(HIGH);
+const ALL  = BANK.concat(SIM).concat(HIGH).concat(OLD);
 const YEARS = [...new Set(BANK.map(q=>q.year))];
+const OLDYEARS = [...new Set(OLD.map(q=>q.year))];
 const SIMS  = [...new Set(SIM.map(q=>q.year))];
 const byId = {}; ALL.forEach(q=>byId[q.year+'-'+q.no]=q);
 const TOPIC = q => (q.topic||'').split('—')[0].trim() || '未分类';
@@ -321,7 +323,7 @@ function render(){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.view===view));
   $('#bgWrong').textContent = Store.wrongIds().length;
   $('#bgFav').textContent = Store.favIds().length;
-  const ft=$('#ftCount'); if(ft) ft.textContent = '真题 '+BANK.length+' · 模拟 '+SIM.length+' · 精选 '+HIGH.length;
+  const ft=$('#ftCount'); if(ft) ft.textContent = '真题 '+BANK.length+' · 模拟 '+SIM.length+' · 精选 '+HIGH.length+(OLD.length?' · 早年 '+OLD.length:'');
   const ft2=$('#ftCount2'); if(ft2) ft2.textContent = '卡片 '+CARDS_OK.length+' · 数据存于本机';
   const bs=$('#brandSub'); if(bs) bs.textContent = '系统架构设计师 · '+ALL.length+' 题';
   const bc=$('#bgCard'); if(bc) bc.textContent = CARDS_OK.filter(c=>!(Store.data.cards[c.id]||{}).box).length;
@@ -359,6 +361,7 @@ function renderHome(){
       <button class="${bankMode==='real'?'on':''}" onclick="setBank('real')">真题 ${BANK.length} 题</button>
       <button class="${bankMode==='sim'?'on':''}" onclick="setBank('sim')">模拟题 ${SIM.length} 题</button>
       ${HIGH.length?`<button class="${bankMode==='high'?'on':''}" onclick="setBank('high')">精选 ${HIGH.length} 题</button>`:''}
+      ${OLD.length?`<button class="${bankMode==='old'?'on':''}" onclick="setBank('old')">早年 ${OLD.length} 题</button>`:''}
     </div>`;
 
   const realPart = `
@@ -419,16 +422,28 @@ function renderHome(){
       <p class="lead" style="margin:14px 0 0">来自第三方备考讲义的「经典 100 题」，已按章节重新归类并清除了原始版式信息；题目偏「反复考的知识点」，适合刷完真题后补漏。</p>
     </div>`;
 
+  const oldPart = `
+    <div class="sec-title">按考次 · 早年真题（2009—2018 下半年）</div>
+    <div class="papers">${OLDYEARS.map(y=>paperCard(y,OLD.filter(q=>q.year===y))).join('')}</div>
+    <div class="sec-title">其他模式</div>
+    <div class="card pad">
+      <div class="row" style="flex-wrap:wrap;gap:10px">
+        <button class="btn primary" onclick="startSession({pool:shuffle(OLD).slice(0,20),mode:'random'})">早年随机 20 题</button>
+        <button class="btn" onclick="go('mock')">全真模考 · 三科连考</button>
+      </div>
+      <p class="lead" style="margin:14px 0 0">⚠️ 本段由公开真题 PDF 扫描件 <b>OCR 整理</b>，已剔除无答案与选项不全的题目，但个别文字、选项可能存在识别偏差；答案与解析取自原卷答案详解，遇到存疑题请以官方教材为准。2009—2018 属第一版大纲考次，部分考点（如传统中间件、旧版 UML）已弱化，建议作为补充练习，不必逐题深究。</p>
+    </div>`;
+
   main.innerHTML=`<div class="wrap">
     <h1>开始练习</h1>
-    <p class="lead">综合知识 · 75 题单选 ｜ 真题 ${BANK.length} 题 + 模拟题 ${SIM.length} 题 + 精选 ${HIGH.length} 题</p>
+    <p class="lead">综合知识 · 75 题单选 ｜ 真题 ${BANK.length} 题 + 模拟题 ${SIM.length} 题 + 精选 ${HIGH.length} 题${OLD.length?' + 早年 '+OLD.length+' 题':''}</p>
     ${seg}
     <div class="stat3">
       <div class="stat"><b>${seen}<i>/${ALL.length}</i></b><span>已练题数</span></div>
       <div class="stat"><b>${rate}<i>%</i></b><span>总正确率 · ${a.t} 次作答</span></div>
       <div class="stat"><b>${Store.wrongIds().length}<i>题</i></b><span>待消化错题</span></div>
     </div>
-    ${bankMode==='real'?realPart:bankMode==='sim'?simPart:(HIGH.length?highPart:realPart)}
+    ${bankMode==='real'?realPart:bankMode==='sim'?simPart:bankMode==='old'?oldPart:(HIGH.length?highPart:realPart)}
   </div>`;
 
   main.querySelectorAll('.paper').forEach(el=>el.onclick=()=>{
@@ -660,6 +675,7 @@ function renderStats(){
     <div class="card pad">
       <div class="kv"><span>真题（2020下—2026上）</span><b>${BANK.filter(q=>Store.data.rec[QID(q)]).length}/${BANK.length}</b></div>
       <div class="kv"><span>模拟题（7 套原创卷）</span><b>${SIM.filter(q=>Store.data.rec[QID(q)]).length}/${SIM.length}</b></div>
+      ${OLD.length?`<div class="kv"><span>早年真题（2009—2018 下 · OCR）</span><b>${OLD.filter(q=>Store.data.rec[QID(q)]).length}/${OLD.length}</b></div>`:''}
     </div>
     <div class="sec-title">各考次完成度</div>
     <div class="card pad">${rows}</div>
@@ -886,9 +902,9 @@ function openExt(u){
 function renderAbout(){
   main.innerHTML=`<div class="wrap">
     <h1>关于</h1>
-    <p class="lead">架构刷题 · 本地版 v2.0</p>
+    <p class="lead">架构刷题 · 本地版 v2.1</p>
     <div class="card pad" style="font-size:12.5px;line-height:1.9;color:#3d4450">
-      <p><b>题库来源</b>　历年真题（考生回忆版）覆盖 2020 年下半年至 2026 年上半年共 9 个考次 ${BANK.length} 题；社区原创模拟卷 7 套 ${SIM.length} 题；另有按章节整理的高频经典题 ${HIGH.length} 题，逐题带解析。</p>
+      <p><b>题库来源</b>　历年真题（考生回忆版）覆盖 2020 年下半年至 2026 年上半年共 9 个考次 ${BANK.length} 题；社区原创模拟卷 7 套 ${SIM.length} 题；另有按章节整理的高频经典题 ${HIGH.length} 题，逐题带解析。${OLD.length?`另收录 2009—2018 年下半年早年真题 ${OLD.length} 题（含答案与解析，由公开 PDF 扫描件 OCR 整理，个别文字可能存在识别偏差）。`:''}</p>
       <p style="margin-top:8px"><b>背诵卡</b>　共 ${CARDS_OK.length} 张：真题案例 ${CARDS_OK.filter(c=>c.k==='case').length} 张、真题论文 ${CARDS_OK.filter(c=>c.k==='paper').length} 张，以及案例提炼 ${CARDS_OK.filter(c=>c.k==='cf').length} 张、论文提炼与范文 ${CARDS_OK.filter(c=>c.k==='pf').length} 张。</p>
       <p style="margin-top:8px"><b>全真模考</b>　按真实节奏三科连考（150 + 90 + 120 分钟），案例与论文为自评，用于定位差距。</p>
       <p style="margin-top:8px"><b>内容说明</b>　题面与选项为考后回忆版，个别题目可能存在缺漏；答案与解析为第三方整理，非官方发布。选项与答案无法一一对应的题（如共用选项的多空题）会提示手动评分。</p>

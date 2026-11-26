@@ -7,6 +7,7 @@
   app/data/demo.json   仓库自带的演示数据
 另外可选（不存在就跳过）：
   app/data/high.json        额外的高频题（如 tools/import_material.py 产出）
+  app/data/old.json         早年真题 2009—2018（由 PDF 扫描件 OCR 整理）
   app/data/cards_extra.json 额外的背诵卡
 """
 import json
@@ -20,6 +21,7 @@ DATA = os.path.join(ROOT, 'app', 'data')
 FULL = os.path.join(DATA, 'bank.json')
 DEMO = os.path.join(DATA, 'demo.json')
 HIGH = os.path.join(DATA, 'high.json')
+OLD = os.path.join(DATA, 'old.json')
 EXTRA = os.path.join(DATA, 'cards_extra.json')
 
 
@@ -41,6 +43,7 @@ def main():
     cards = list(data.get('cards', []))
 
     high = sorted(load(HIGH) or [], key=lambda q: (q.get('topic', ''), q['no']))
+    old = sorted(load(OLD) or [], key=lambda q: (q['year'], q['no']))
     extra = load(EXTRA) or []
     if extra:
         seen = {c['id'] for c in cards}
@@ -55,6 +58,7 @@ def main():
     html = (tpl.replace('__BANK__', js(bank))
                .replace('__SIM__', js(sim))
                .replace('__HIGH__', js(high))
+               .replace('__OLD__', js(old))
                .replace('__CARDS__', js(cards)))
 
     with open(OUT, 'w', encoding='utf-8') as f:
@@ -62,7 +66,7 @@ def main():
 
     mode = '完整题库' if src == FULL else '演示数据'
     print(f"已生成 {OUT}（{len(html)/1024:.0f} KB）· {mode} · "
-          f"真题 {len(bank)} / 模拟 {len(sim)} / 高频 {len(high)} / 卡片 {len(cards)}")
+          f"真题 {len(bank)} / 模拟 {len(sim)} / 高频 {len(high)} / 早年 {len(old)} / 卡片 {len(cards)}")
 
 
 if __name__ == '__main__':
