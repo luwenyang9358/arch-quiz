@@ -37,7 +37,7 @@ body{
 .nav button.on .ico{opacity:1}
 .badge{margin-left:auto;font-size:10.5px;background:#eceef2;color:#5b6472;padding:0 6px;border-radius:9px;min-width:18px;text-align:center}
 .nav button.on .badge{background:#d6e4fb;color:#1f56b3}
-.side .foot{margin-top:auto;padding:8px 6px;font-size:10px;color:#9aa4b2;line-height:1.75}
+.side .foot{margin-top:auto;padding:8px 6px;font-size:10px;color:#9aa4b2;line-height:1.75;display:block}
 .side .foot span{white-space:nowrap;display:block}
 
 /* ---------- 主区 ---------- */
@@ -145,8 +145,10 @@ select.sel{border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-
 .ctitle{font-size:15px;font-weight:650;line-height:1.6;margin:6px 0 12px;padding-bottom:10px;border-bottom:1px dashed #e3e6eb}
 .cbody{font-size:13px;line-height:1.85;color:#2b313a;padding-right:4px;user-select:text}
 .cbody.rev{color:#4b5563}
-.stickyfoot{position:sticky;bottom:-10px;background:#f4f5f7;border-top:1px solid #e6e9ee;
-  padding:12px 2px 8px;margin:14px -2px 0}
+/* 卡片内容末尾留白，避免被吸底按钮遮住最后一行 */
+.qcard .cbody:last-child{padding-bottom:58px}
+.stickyfoot{position:sticky;bottom:-40px;background:#f4f5f7;border-top:1px solid #e6e9ee;
+  padding:12px 2px 8px;margin:14px -2px 0;z-index:6}
 .cbody p{margin:0 0 8px}
 .cbody ul,.cbody ol{margin:4px 0 8px;padding-left:20px}
 .cbody li{margin-bottom:3px}
@@ -201,6 +203,27 @@ table.ct td{border:1px solid #e3e6eb;padding:4px 6px;vertical-align:top}
 .kbd{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;background:#f0f2f6;border:1px solid #e2e5ea;
   border-bottom-width:2px;border-radius:4px;padding:0 4px;color:#5b6472}
 @media (max-width:720px){#app{grid-template-columns:1fr}.side{display:none}.main{padding:18px}}
+/* 全真模考 */
+.stagebar{display:flex;gap:8px;margin:14px 0 16px}
+.stage{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:#fff;font-size:11.5px;color:var(--sub)}
+.stage b{display:block;font-size:12.5px;color:var(--text);margin-bottom:2px}
+.stage.on{border-color:#b9cbf0;background:#f5f9ff}
+.stage.on b{color:#1f56b3}
+.stage.ok{border-color:#bfe3ca;background:#f4fbf6}
+.stage.ok b{color:#1a7d4f}
+.ta{width:100%;min-height:110px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;
+  font-family:inherit;font-size:13px;line-height:1.85;resize:vertical;background:#fff;color:var(--text);user-select:text}
+.ta:focus{outline:none;border-color:#9db8f0;box-shadow:0 0 0 3px rgba(47,111,219,.10)}
+.tameta{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--sub);margin-top:7px}
+.pickbox{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#3d4450;cursor:pointer;user-select:none}
+.scorebar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.scorebar button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 11px;font:inherit;
+  font-size:12px;cursor:pointer;color:#3d4450}
+.scorebar button.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.mrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed #eceef2;font-size:12.5px}
+.mrow:last-child{border-bottom:0}
+.mscore{font-size:26px;font-weight:650;letter-spacing:.5px}
+.mscore small{font-size:12px;font-weight:500;color:var(--sub);margin-left:3px}
 </style>
 </head>
 <body>
@@ -209,6 +232,7 @@ table.ct td{border:1px solid #e3e6eb;padding:4px 6px;vertical-align:top}
     <div class="brand"><div class="dot">架</div><div><b>架构刷题</b><span id="brandSub">系统架构设计师</span></div></div>
     <nav class="nav" id="nav">
       <button data-view="home" class="on">练习</button>
+      <button data-view="mock">全真模考</button>
       <button data-view="cards">背诵卡<span class="badge" id="bgCard">0</span></button>
       <button data-view="video">视频课</button>
       <button data-view="wrong">错题本<span class="badge" id="bgWrong">0</span></button>
@@ -216,7 +240,7 @@ table.ct td{border:1px solid #e3e6eb;padding:4px 6px;vertical-align:top}
       <button data-view="stats">统计</button>
       <button data-view="about">关于</button>
     </nav>
-    <div class="foot"><span id="ftCount"></span><span>数据存于本机</span></div>
+    <div class="foot"><span id="ftCount"></span><span id="ftCount2"></span></div>
   </aside>
   <main class="main" id="main"></main>
 </div>
@@ -224,15 +248,24 @@ table.ct td{border:1px solid #e3e6eb;padding:4px 6px;vertical-align:top}
 <script>
 const BANK = __BANK__;
 const SIM  = __SIM__;
+const HIGH = __HIGH__;
 const CARDS = __CARDS__;
 const CARDS_OK = CARDS.filter(c=>c.back && c.back.length>=30);
-const ALL  = BANK.concat(SIM);
+const ALL  = BANK.concat(SIM).concat(HIGH);
 const YEARS = [...new Set(BANK.map(q=>q.year))];
 const SIMS  = [...new Set(SIM.map(q=>q.year))];
 const byId = {}; ALL.forEach(q=>byId[q.year+'-'+q.no]=q);
 const TOPIC = q => (q.topic||'').split('—')[0].trim() || '未分类';
 const TOPICS = (()=>{ const m={}; SIM.forEach(q=>{ const t=TOPIC(q); m[t]=(m[t]||0)+1 });
   return Object.entries(m).sort((a,b)=>b[1]-a[1]) })();
+const HIGH_TOPICS = (()=>{ const m={}; HIGH.forEach(q=>{ const t=TOPIC(q); m[t]=(m[t]||0)+1 });
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]) })();
+const paperLabel = y => y.startsWith('模拟') ? y.replace('模拟','模拟卷 ')
+  : y==='精选100' ? '精选 100 题'
+  : /^\d{4}[上下]半$/.test(y) ? y.replace('上半',' 年上半年').replace('下半',' 年下半年')
+  : y+'年';
+/* 分组数 == 答案数 → 可自动判分（多空题按组对位比对） */
+const AUTO = q => q.ans.length === q.groups.length;
 const QID = q => q.year+'-'+q.no;
 
 /* ---------------- 存储 ---------------- */
@@ -244,8 +277,9 @@ const Store = {
     if(window.__INIT__){ raw=window.__INIT__; }
     else { try{ raw=localStorage.getItem(this.key) }catch(e){} }
     let d={}; try{ d=JSON.parse(raw||'{}')||{} }catch(e){}
-    this.data=Object.assign({rec:{},fav:{},wrong:{},pos:{},exam:[],cards:{}}, d);
+    this.data=Object.assign({rec:{},fav:{},wrong:{},pos:{},exam:[],cards:{},mock:null,mockHist:[]}, d);
     if(!this.data.cards) this.data.cards={};
+    if(!this.data.mockHist) this.data.mockHist=[];
   },
   save(){
     const s=JSON.stringify(this.data);
@@ -287,8 +321,9 @@ function render(){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.view===view));
   $('#bgWrong').textContent = Store.wrongIds().length;
   $('#bgFav').textContent = Store.favIds().length;
-  const ft=$('#ftCount'); if(ft) ft.textContent = '真题 '+BANK.length+' / 模拟 '+SIM.length;
-  const bs=$('#brandSub'); if(bs) bs.textContent = '共 '+ALL.length+' 题 · 真题+模拟';
+  const ft=$('#ftCount'); if(ft) ft.textContent = '真题 '+BANK.length+' · 模拟 '+SIM.length+' · 精选 '+HIGH.length;
+  const ft2=$('#ftCount2'); if(ft2) ft2.textContent = '卡片 '+CARDS_OK.length+' · 数据存于本机';
+  const bs=$('#brandSub'); if(bs) bs.textContent = '系统架构设计师 · '+ALL.length+' 题';
   const bc=$('#bgCard'); if(bc) bc.textContent = CARDS_OK.filter(c=>!(Store.data.cards[c.id]||{}).box).length;
   if(view==='quiz') return renderQuiz();
   if(view==='result') return renderResult();
@@ -297,6 +332,7 @@ function render(){
   if(view==='fav') return renderList('fav');
   if(view==='stats') return renderStats();
   if(view==='cards') return renderCards();
+  if(view==='mock') return renderMock();
   if(view==='video') return renderVideo();
   if(view==='about') return renderAbout();
 }
@@ -309,7 +345,7 @@ function setBank(m){ bankMode=m; render() }
 
 function paperCard(y, list){
   const done=list.filter(q=>Store.data.rec[QID(q)]).length, p=Math.round(done/list.length*100);
-  const lbl = y.startsWith('模拟') ? y.replace('模拟','模拟卷 ') : y+'年';
+  const lbl = paperLabel(y);
   return `<div class="paper" data-year="${y}">
     ${done===list.length&&done?'<span class="done">已完成</span>':''}
     <b>${lbl}</b><div class="bar"><i style="width:${p}%"></i></div>
@@ -322,6 +358,7 @@ function renderHome(){
   const seg=`<div class="seg">
       <button class="${bankMode==='real'?'on':''}" onclick="setBank('real')">真题 ${BANK.length} 题</button>
       <button class="${bankMode==='sim'?'on':''}" onclick="setBank('sim')">模拟题 ${SIM.length} 题</button>
+      ${HIGH.length?`<button class="${bankMode==='high'?'on':''}" onclick="setBank('high')">精选 ${HIGH.length} 题</button>`:''}
     </div>`;
 
   const realPart = `
@@ -331,7 +368,7 @@ function renderHome(){
     <div class="card pad">
       <div class="row" style="flex-wrap:wrap;gap:10px">
         <button class="btn primary" onclick="startSession({pool:shuffle(BANK).slice(0,20),mode:'random'})">真题随机 20 题</button>
-        <button class="btn" onclick="startExam('real')">真题模考 · 75 题 / 150 分钟</button>
+        <button class="btn" onclick="go('mock')">全真模考 · 三科连考</button>
         <button class="btn" onclick="go('wrong')">错题重练</button>
         <button class="btn" onclick="go('fav')">收藏练习</button>
       </div>
@@ -361,16 +398,37 @@ function renderHome(){
       <p class="lead" style="margin:14px 0 0">模拟题为社区原创，考点标注完整，难度贴近真题但个别题目表述与答案可能有偏差，遇到存疑题以教材为准。</p>
     </div>`;
 
+  const highPart = `
+    <div class="sec-title">按章节 · 高频经典题（${HIGH.length} 题，逐题带详细解析）</div>
+    <div class="topics">${HIGH_TOPICS.filter(([t,n])=>n>=3).map(([t,n])=>
+      `<div class="chip" onclick="startTopic('${t.replace(/'/g,"\\'")}','high')">
+        <b>${t}</b><span>${n} 题 · 已练 ${HIGH.filter(q=>TOPIC(q)===t&&Store.data.rec[QID(q)]).length}</span></div>`).join('')}</div>
+    ${HIGH_TOPICS.filter(([t,n])=>n<3).length?`<div class="row" style="margin-top:10px;gap:10px">
+      <span style="font-size:12px;color:var(--sub)">其他章节</span>
+      <select class="sel" onchange="if(this.value)startTopic(this.value,'high')">
+        <option value="">选择章节（共 ${HIGH_TOPICS.length} 个）</option>
+        ${HIGH_TOPICS.filter(([t,n])=>n<3).map(([t,n])=>`<option value="${t.replace(/"/g,'&quot;')}">${t}（${n} 题）</option>`).join('')}
+      </select>
+    </div>`:''}
+    <div class="sec-title">其他模式</div>
+    <div class="card pad">
+      <div class="row" style="flex-wrap:wrap;gap:10px">
+        <button class="btn primary" onclick="startSession({pool:shuffle(HIGH).slice(0,20),mode:'random'})">精选随机 20 题</button>
+        <button class="btn" onclick="startExam('high')">精选整卷 · ${HIGH.length} 题</button>
+      </div>
+      <p class="lead" style="margin:14px 0 0">来自第三方备考讲义的「经典 100 题」，已按章节重新归类并清除了原始版式信息；题目偏「反复考的知识点」，适合刷完真题后补漏。</p>
+    </div>`;
+
   main.innerHTML=`<div class="wrap">
     <h1>开始练习</h1>
-    <p class="lead">综合知识 · 75 题单选 ｜ 真题 ${BANK.length} 题 + 模拟题 ${SIM.length} 题</p>
+    <p class="lead">综合知识 · 75 题单选 ｜ 真题 ${BANK.length} 题 + 模拟题 ${SIM.length} 题 + 精选 ${HIGH.length} 题</p>
     ${seg}
     <div class="stat3">
       <div class="stat"><b>${seen}<i>/${ALL.length}</i></b><span>已练题数</span></div>
       <div class="stat"><b>${rate}<i>%</i></b><span>总正确率 · ${a.t} 次作答</span></div>
       <div class="stat"><b>${Store.wrongIds().length}<i>题</i></b><span>待消化错题</span></div>
     </div>
-    ${bankMode==='real'?realPart:simPart}
+    ${bankMode==='real'?realPart:bankMode==='sim'?simPart:(HIGH.length?highPart:realPart)}
   </div>`;
 
   main.querySelectorAll('.paper').forEach(el=>el.onclick=()=>{
@@ -380,14 +438,14 @@ function renderHome(){
   });
 }
 
-function startTopic(t){
-  const pool=SIM.filter(q=>TOPIC(q)===t);
+function startTopic(t, which){
+  const pool=(which==='high'?HIGH:SIM).filter(q=>TOPIC(q)===t);
   startSession({pool, mode:'topic', label:'考点 · '+t});
 }
 
 function startExam(which){
-  const src = which==='sim' ? SIM : BANK;
-  const qs=shuffle(src).slice(0,75);
+  const src = which==='sim' ? SIM : which==='high' ? HIGH : BANK;
+  const qs = which==='high' ? shuffle(src) : shuffle(src).slice(0,75);
   startSession({pool:qs, mode:'exam', exam:true, deadline:Date.now()+150*60*1000});
 }
 
@@ -400,22 +458,23 @@ function renderQuiz(){
   const picked=S.picks[id], judged=S.done[id];
   const n=S.pool.length, pct=Math.round((S.idx)/n*100);
 
-  const groups=q.groups.map(g=>`
+  const groups=q.groups.map((g,gi)=>`
     ${g.label?`<div class="sec-title" style="margin:6px 0 2px">${esc(g.label)}</div>`:''}
     <div class="opts">${g.items.map(o=>{
       let cls='opt';
-      if(S.exam){ if(picked&&picked.includes(o.k)) cls+=' sel' }
+      const sel=!!picked && picked[gi]===o.k;
+      if(S.exam){ if(sel) cls+=' sel' }
       else if(judged){
         cls+=' lock';
-        if(q.ans.includes(o.k)) cls+=' ok';
-        else if(picked&&picked.includes(o.k)) cls+=' no';
+        if(q.ans[gi]===o.k) cls+=' ok';
+        else if(sel) cls+=' no';
       }
-      return `<div class="${cls}" data-k="${o.k}"><div class="k">${o.k}</div><div class="t">${esc(o.t)}</div></div>`;
+      return `<div class="${cls}" data-k="${o.k}" data-g="${gi}"><div class="k">${o.k}</div><div class="t">${esc(o.t)}</div></div>`;
     }).join('')}</div>`).join('');
 
   const showExp = !S.exam && judged;
-  const ansText = q.ans.join('、');
-  const right = showExp && picked && q.ans.join('')===picked.join('');
+  const ansText = ansLabel(q);
+  const right = showExp && picked && q.ans.every((a,i)=>picked[i]===a);
 
   main.innerHTML=`<div class="wrap">
     <div class="topbar">
@@ -426,22 +485,22 @@ function renderQuiz(){
     </div>
     <div class="card pad">
       <div class="qmeta">
-        <span class="tag">${q.year.startsWith('模拟')?q.year.replace('模拟','模拟卷 '):q.year}</span><span>第 ${q.no} 题</span>
+        <span class="tag">${paperLabel(q.year)}</span><span>第 ${q.no} 题</span>
         ${q.m?'<span class="tag multi">多空题</span>':''}
         ${q.topic?`<span class="tag topic">${esc(TOPIC(q))}</span>`:''}
         <button class="star ${Store.data.fav[id]?'on':''}" id="star">★</button>
       </div>
       <div class="stem">${esc(q.stem)}</div>
       ${groups}
-      ${q.m && !S.exam && !judged ? `<div class="foot"><span style="font-size:11.5px;color:var(--sub)">多空题请自行对照答案评分</span><button class="btn primary" onclick="revealManual()">查看答案</button></div>`:''}
+      ${!AUTO(q) && !S.exam && !judged ? `<div class="foot"><span style="font-size:11.5px;color:var(--sub)">该题选项与答案非一一对应，请自行对照评分</span><button class="btn primary" onclick="revealManual()">查看答案</button></div>`:''}
       ${showExp?`<div class="exp">
-          <div class="hd">${q.m?'参考答案':(right?'回答正确':'回答错误')}
-            <span class="ansline ${right?'':'bad'}">${q.m?'':'正确答案 '+ansText}</span></div>
-          ${q.m?`<div style="margin-bottom:8px"><b>答案：</b>${ansText}</div>`:''}
+          <div class="hd">${AUTO(q)?(right?'回答正确':'回答错误'):'参考答案'}
+            <span class="ansline ${right?'':'bad'}">${AUTO(q)?'正确答案 '+ansText:''}</span></div>
+          ${AUTO(q)?'':`<div style="margin-bottom:8px"><b>答案：</b>${ansText}</div>`}
           <div style="white-space:pre-wrap">${esc(q.exp)}</div>
-          ${q.m?`<div class="selfjudge">
+          ${AUTO(q)?'':`<div class="selfjudge">
             <button class="btn" onclick="manualJudge(1)">我答对了</button>
-            <button class="btn" onclick="manualJudge(0)">我答错了</button></div>`:''}
+            <button class="btn" onclick="manualJudge(0)">我答错了</button></div>`}
         </div>`:''}
       <div class="foot">
         <button class="btn" onclick="prevQ()" ${S.idx===0?'disabled':''}>上一题</button>
@@ -456,22 +515,29 @@ function renderQuiz(){
 
   main.querySelectorAll('.opt').forEach(el=>{
     if(!S.exam && judged) return;
-    el.onclick=()=>pick(el.dataset.k);
+    el.onclick=()=>pick(+el.dataset.g, el.dataset.k);
   });
   $('#star').onclick=e=>{ Store.toggleFav(id); e.target.classList.toggle('on'); $('#bgFav').textContent=Store.favIds().length };
   if(S.exam) startTimer();
 }
 
-function pick(k){
+function ansLabel(q){
+  return q.groups.length>1 ? q.ans.map((a,i)=>`第${i+1}空 ${a}`).join('　') : q.ans.join('、');
+}
+function pick(gi, k){
   const q=S.pool[S.idx], id=QID(q);
-  if(q.m && !S.exam){ revealManual(); return }
+  if(!AUTO(q) && !S.exam){ revealManual(); return }
+  if(!S.exam && S.done[id]) return;
+  const cur=(S.picks[id]||[]).slice(); cur[gi]=k; S.picks[id]=cur;
+  const complete=q.groups.every((g,i)=>cur[i]);
   if(S.exam){
-    S.picks[id]=[k]; S.done[id]=1;
+    if(complete) S.done[id]=1; else delete S.done[id];
+    if(S.mock) saveMock();
     renderQuiz(); return;
   }
-  if(S.done[id]) return;
-  S.picks[id]=[k]; S.done[id]=1;
-  Store.mark(id, q.ans.length===1 && k===q.ans[0]);
+  if(!complete){ renderQuiz(); return }
+  S.done[id]=1;
+  Store.mark(id, q.ans.every((a,i)=>cur[i]===a));
   renderQuiz();
 }
 function revealManual(){ const q=S.pool[S.idx]; S.done[QID(q)]=1; renderQuiz() }
@@ -495,14 +561,14 @@ function startTimer(){
 
 function finish(){
   clearInterval(timerH);
+  if(S && S.mock) return mockSubmitS1();
   let right=0,wrong=0,blank=0,manual=0;
   S.pool.forEach(q=>{
-    const id=QID(q), p=S.picks[id];
-    if(!p||!p.length){ blank++; return }
-    if(q.m){ manual++; return }               // 多空题不计入自动判分
-    const ok=q.ans.join('')===p.join('');
-    ok?right++:wrong++;
-    if(S.exam) Store.mark(id,ok);
+    const id=QID(q), p=S.picks[id]||[];
+    if(!p.filter(Boolean).length){ blank++; return }
+    if(!AUTO(q)){ manual++; return }          // 选项与答案非一一对应，不计入自动判分
+    q.ans.every((a,i)=>p[i]===a)?right++:wrong++;
+    if(S.exam) Store.mark(id, q.ans.every((a,i)=>p[i]===a));
   });
   const total=S.pool.length;
   let score=null;
@@ -655,8 +721,10 @@ function renderCards(){
     <h1>背诵卡</h1>
     <p class="lead">看题 → 自己口述 → 对照踩分点自评。共 ${CARDS_OK.length} 张，源文件缺答案的 ${CARDS.length-CARDS_OK.length} 张未纳入</p>
     <div class="seg">
-      <button class="${cKind==='case'?'on':''}" onclick="switchDeck('case')">案例分析 ${CARDS_OK.filter(x=>x.k==='case').length}</button>
-      <button class="${cKind==='paper'?'on':''}" onclick="switchDeck('paper')">论文 ${CARDS_OK.filter(x=>x.k==='paper').length}</button>
+      <button class="${cKind==='case'?'on':''}" onclick="switchDeck('case')">案例真题 ${CARDS_OK.filter(x=>x.k==='case').length}</button>
+      <button class="${cKind==='paper'?'on':''}" onclick="switchDeck('paper')">论文真题 ${CARDS_OK.filter(x=>x.k==='paper').length}</button>
+      <button class="${cKind==='cf'?'on':''}" onclick="switchDeck('cf')">案例提炼 ${CARDS_OK.filter(x=>x.k==='cf').length}</button>
+      <button class="${cKind==='pf'?'on':''}" onclick="switchDeck('pf')">论文提炼 ${CARDS_OK.filter(x=>x.k==='pf').length}</button>
     </div>
     <div class="topbar" style="margin-bottom:12px">
       <div class="prog"><i style="width:${pct}%"></i></div>
@@ -664,8 +732,8 @@ function renderCards(){
     </div>
     <div class="card pad qcard">
       <div class="qmeta">
-        <span class="tag">${esc(c.year||'')}</span>
-        <span class="tag topic">${c.k==='case'?'案例':'论文'}</span>
+        <span class="tag">${esc(c.chapter || paperLabel(c.year||''))}</span>
+        <span class="tag topic">${c.k==='case'?'案例':c.k==='paper'?'论文':c.k==='cf'?'案例提炼':'论文提炼'}</span>
         <span class="cmode">第 ${cIdx+1} / ${deck.length} 张 · 复习 ${rec.seen||0} 次</span>
       </div>
       <div class="ctitle">${esc(c.title)}</div>
@@ -709,7 +777,7 @@ function nativeSave(filename, content, fmt){
 }
 function qFrontHTML(q){
   const opts=q.groups.map(g=>g.items.map(o=>esc(o.k+'．'+o.t)).join('<br>')).join('<br>');
-  return '<b>'+esc((q.year.startsWith('模拟')?q.year.replace('模拟','模拟卷 '):q.year)+' 第'+q.no+'题')+'</b><br>'+
+  return '<b>'+esc(paperLabel(q.year)+' 第'+q.no+'题')+'</b><br>'+
          esc(q.stem).replace(/\n/g,'<br>')+'<br><br>'+opts;
 }
 function qBackHTML(q){
@@ -739,7 +807,7 @@ function buildDoc(kind){
   const qs=ids.map(i=>byId[i]).filter(Boolean);
   const L=['# 系统架构设计师 · '+(kind==='wrong'?'错题本':'收藏夹'),'# 导出时间 '+new Date().toLocaleString('zh-CN')+' ｜ 共 '+qs.length+' 题',''];
   qs.forEach((q,n)=>{
-    L.push('## '+(n+1)+'. '+(q.year.startsWith('模拟')?q.year.replace('模拟','模拟卷 '):q.year)+' 第'+q.no+'题'+(q.topic?'　【'+q.topic+'】':''));
+    L.push('## '+(n+1)+'. '+paperLabel(q.year)+' 第'+q.no+'题'+(q.topic?'　【'+q.topic+'】':''));
     L.push(q.stem);
     q.groups.forEach(g=>{ g.items.forEach(o=>L.push('- '+o.k+'．'+o.t)) });
     L.push('正确答案：'+q.ans.join('、'));
@@ -818,11 +886,12 @@ function openExt(u){
 function renderAbout(){
   main.innerHTML=`<div class="wrap">
     <h1>关于</h1>
-    <p class="lead">架构刷题 · 本地版 v1.2</p>
+    <p class="lead">架构刷题 · 本地版 v2.0</p>
     <div class="card pad" style="font-size:12.5px;line-height:1.9;color:#3d4450">
-      <p><b>题库来源</b>　开源社区整理的历年真题（考生回忆版），覆盖 2020 年下半年至 2026 年上半年共 9 个考次、${BANK.length} 道真题，另附 7 套原创模拟卷 ${SIM.length} 题（带考点标注）。</p>
-      <p style="margin-top:8px"><b>背诵卡</b>　案例 ${CARDS_OK.filter(c=>c.k==='case').length} 张、论文 ${CARDS_OK.filter(c=>c.k==='paper').length} 张，取自同源真题的参考答案与写作要点。</p>
-      <p style="margin-top:8px"><b>内容说明</b>　题面与选项为考后回忆版，个别题目可能存在缺漏；答案与解析为第三方整理，非官方发布。多空题需自行对照答案评分。</p>
+      <p><b>题库来源</b>　历年真题（考生回忆版）覆盖 2020 年下半年至 2026 年上半年共 9 个考次 ${BANK.length} 题；社区原创模拟卷 7 套 ${SIM.length} 题；另有按章节整理的高频经典题 ${HIGH.length} 题，逐题带解析。</p>
+      <p style="margin-top:8px"><b>背诵卡</b>　共 ${CARDS_OK.length} 张：真题案例 ${CARDS_OK.filter(c=>c.k==='case').length} 张、真题论文 ${CARDS_OK.filter(c=>c.k==='paper').length} 张，以及案例提炼 ${CARDS_OK.filter(c=>c.k==='cf').length} 张、论文提炼与范文 ${CARDS_OK.filter(c=>c.k==='pf').length} 张。</p>
+      <p style="margin-top:8px"><b>全真模考</b>　按真实节奏三科连考（150 + 90 + 120 分钟），案例与论文为自评，用于定位差距。</p>
+      <p style="margin-top:8px"><b>内容说明</b>　题面与选项为考后回忆版，个别题目可能存在缺漏；答案与解析为第三方整理，非官方发布。选项与答案无法一一对应的题（如共用选项的多空题）会提示手动评分。</p>
       <p style="margin-top:8px"><b>数据存储</b>　练习记录、错题、收藏、背诵进度全部保存在本机应用支持目录，不上传任何服务器。</p>
       <p style="margin-top:8px"><b>仅供个人备考使用</b>　请勿二次分发或用于商业用途。</p>
     </div>
@@ -839,13 +908,320 @@ function renderAbout(){
   </div>`;
 }
 
+/* ================= 全真模考（三科连考） ================= */
+const PASS=45;
+const SUBJ=[
+  {n:1,t:'综合知识',min:150,desc:'75 题单选'},
+  {n:2,t:'案例分析',min:90, desc:'1 必答 + 2 选答'},
+  {n:3,t:'论文',    min:120,desc:'4 选 1 · 2000 字以上'}
+];
+let M=null, mTimer=null;
+let mockCfg={paper:null, caseYear:null, paperYear:null};
+function saveMock(){ Store.data.mock=M; Store.save() }
+function mockPapers(){ return [...YEARS,...SIMS].filter(y=>ALL.filter(q=>q.year===y).length>=60) }
+function caseSets(){
+  const m={}; CARDS_OK.forEach(c=>{ if(c.k==='case') (m[c.year]=m[c.year]||[]).push(c) });
+  return Object.keys(m).filter(y=>m[y].length>=4).sort().reverse().map(y=>({y,arr:m[y].slice(0,5)}));
+}
+function paperSets(){
+  const m={}; CARDS_OK.forEach(c=>{ if(c.k==='paper') (m[c.year]=m[c.year]||[]).push(c) });
+  return Object.keys(m).filter(y=>m[y].length>=3).sort().reverse().map(y=>({y,arr:m[y]}));
+}
+function fmtLeft(ms){
+  const l=Math.max(0,ms), m=Math.floor(l/60000), s=Math.floor(l%60000/1000);
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+function stopMockTimer(){ clearInterval(mTimer); mTimer=null }
+function startMockTimer(sel, deadline, onEnd){
+  stopMockTimer();
+  const tick=()=>{
+    const el=$(sel); if(!el){ stopMockTimer(); return }
+    const left=Math.max(0,deadline-Date.now());
+    el.textContent='剩 '+fmtLeft(left);
+    if(left<=0){ stopMockTimer(); onEnd() }
+  };
+  tick(); mTimer=setInterval(tick,1000);
+}
+function stageBar(cur){
+  return `<div class="stagebar">${SUBJ.map(s=>{
+    const done=M&&M.doneStages&&M.doneStages[s.n];
+    const on=M&&M.stage===s.n;
+    return `<div class="stage ${done?'ok':''} ${on?'on':''}"><b>${s.t}</b>${done?'已完成':(on?'进行中':s.min+' 分钟')}</div>`;
+  }).join('')}</div>`;
+}
+
+function renderMock(){
+  stopMockTimer();
+  if(!M) return renderMockSetup();
+  if(M.stage===1) return renderMockPending();
+  if(M.stage===2) return renderMockCase();
+  if(M.stage===3) return renderMockPaper();
+  return renderMockResult();
+}
+
+function renderMockSetup(){
+  const ps=mockPapers(), cs=caseSets(), pp=paperSets();
+  if(!mockCfg.paper) mockCfg.paper = YEARS[YEARS.length-1]||ps[0];
+  if(!mockCfg.caseYear) mockCfg.caseYear = cs.length?cs[0].y:'';
+  if(!mockCfg.paperYear) mockCfg.paperYear = pp.length?pp[0].y:'';
+  const opt=(arr,cur,fn)=>arr.map(v=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(fn?fn(v):v)}</option>`).join('');
+  const hist=Store.data.mockHist||[];
+  main.innerHTML=`<div class="wrap">
+    <h1>全真模考</h1>
+    <p class="lead">按真实考试节奏三科连考：综合知识 150 分钟 → 案例分析 90 分钟 → 论文 120 分钟。每科满分 75 分、45 分及格，三科同时达标才算通过。</p>
+    ${stageBar(0)}
+    <div class="card pad">
+      <div class="row" style="flex-wrap:wrap;gap:16px">
+        <label style="font-size:12.5px;color:var(--sub)">综合知识卷
+          <select class="sel" onchange="mockCfg.paper=this.value">${opt(ps,mockCfg.paper,paperLabel)}</select></label>
+        <label style="font-size:12.5px;color:var(--sub)">案例套次
+          <select class="sel" onchange="mockCfg.caseYear=this.value">${opt(cs.map(x=>x.y),mockCfg.caseYear,v=>v+'（'+((cs.find(z=>z.y===v)||{}).arr||[]).length+' 题）')}</select></label>
+        <label style="font-size:12.5px;color:var(--sub)">论文题组
+          <select class="sel" onchange="mockCfg.paperYear=this.value">${opt(pp.map(x=>x.y),mockCfg.paperYear,v=>v+'（'+((pp.find(z=>z.y===v)||{}).arr||[]).length+' 题）')}</select></label>
+      </div>
+      <div class="foot" style="margin-top:18px">
+        <span style="font-size:11.5px;color:var(--sub)">中途退出不暂停计时，回来可继续</span>
+        <button class="btn primary" onclick="startMock()">开始考试</button>
+      </div>
+    </div>
+    <div class="sec-title">考试规则</div>
+    <div class="card pad" style="font-size:12.5px;line-height:1.95;color:#3d4450">
+      <b>1. 综合知识</b>　75 道单选，150 分钟，满分 75 分，答完自动判分。<br>
+      <b>2. 案例分析</b>　试题一必答 + 试题二～五选答 2 道（每题 25 分），90 分钟。交卷后逐题对照参考答案给自己打分。<br>
+      <b>3. 论文</b>　4 道题选 1 道，120 分钟，正文 2000 字以上。交卷后对照写作要点自评。<br>
+      <b>4. 通过标准</b>　三科均 ≥ ${PASS} 分（单科不过即整体不过，与真实考试一致）。
+    </div>
+    ${hist.length?`<div class="sec-title">历史成绩</div>
+      <div class="card pad">${hist.slice(0,8).map(h=>`<div class="mrow">
+        <span style="width:120px;color:var(--sub)">${new Date(h.ts).toLocaleDateString('zh-CN')}</span>
+        <span style="flex:1">综合 ${h.s1} · 案例 ${h.s2} · 论文 ${h.s3}</span>
+        <b style="color:${h.pass?'var(--ok)':'var(--no)'}">${h.pass?'通过':'未通过'}</b>
+      </div>`).join('')}</div>`:''}
+  </div>`;
+}
+
+function startMock(){
+  M={id:'m'+Date.now(), ts:Date.now(), stage:1,
+     paper:mockCfg.paper, caseYear:mockCfg.caseYear, paperYear:mockCfg.paperYear,
+     d1:Date.now()+150*60000, d2:0, d3:0,
+     picks:{}, done:{}, caseAns:{}, caseSel:[], caseScore:{},
+     paperPick:null, paperText:'', s1:null, s2:null, s3:null, doneStages:{}};
+  saveMock(); startMockS1();
+}
+function startMockS1(){
+  M.stage=1; saveMock();
+  startSession({pool:ALL.filter(q=>q.year===M.paper), mode:'exam', exam:true, mock:1,
+                deadline:M.d1, picks:M.picks, done:M.done});
+}
+function mockAbort(){
+  if(!confirm('放弃本次模考？已作答内容会清空。')) return;
+  stopMockTimer(); M=null; Store.data.mock=null; Store.save(); renderMock();
+}
+function renderMockPending(){
+  const total=ALL.filter(q=>q.year===M.paper).length;
+  main.innerHTML=`<div class="wrap">
+    <h1>综合知识 · 进行中</h1>
+    <p class="lead">${paperLabel(M.paper)} · 已答 ${Object.keys(M.done).length} / ${total}</p>
+    ${stageBar(1)}
+    <div class="card pad">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div><div class="mscore" id="mleft">剩 --:--</div>
+          <div style="font-size:12px;color:var(--sub);margin-top:4px">时间到自动交卷并进入案例</div></div>
+        <div class="row" style="gap:8px">
+          <button class="btn" onclick="mockAbort()">放弃本次</button>
+          <button class="btn primary" onclick="startMockS1()">继续作答</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  startMockTimer('#mleft', M.d1, ()=>{ if(M&&M.stage===1) mockSubmitS1() });
+}
+function mockSubmitS1(){
+  stopMockTimer();
+  const qs=ALL.filter(q=>q.year===M.paper);
+  let right=0, blank=0, manual=0;
+  qs.forEach(q=>{
+    const p=M.picks[QID(q)]||[];
+    if(!p.filter(Boolean).length){ blank++; return }
+    if(!AUTO(q)){ manual++; return }
+    if(q.ans.every((a,i)=>p[i]===a)) right++;
+  });
+  M.s1=Math.round(right/qs.length*75);
+  M.s1d={right,blank,manual,total:qs.length};
+  M.doneStages[1]=1; M.stage=2;
+  if(!M.d2) M.d2=Date.now()+90*60000;
+  saveMock(); view='mock'; S=null; clearInterval(timerH); render(); main.scrollTop=0;
+}
+
+/* ---- 案例 ---- */
+function mockCaseSet(){ return (caseSets().find(s=>s.y===M.caseYear)||caseSets()[0]||{arr:[]}).arr }
+function mockCaseInput(id, v){ M.caseAns[id]=v; saveMock() }
+function mockCaseSel(id, on){
+  const i=M.caseSel.indexOf(id);
+  if(on && i<0){ if(M.caseSel.length>=2) return false; M.caseSel.push(id) }
+  else if(!on && i>=0) M.caseSel.splice(i,1);
+  saveMock(); renderMockCase(); return true;
+}
+function renderMockCase(){
+  const arr=mockCaseSet(), req=arr[0], opt=arr.slice(1);
+  const grade=!!M.caseGrade;
+  const card=(c,isReq)=>{
+    const sel=M.caseSel.indexOf(c.id)>=0;
+    const sc=M.caseScore[c.id];
+    return `<div class="card pad" style="margin-bottom:14px">
+      <div class="qmeta">
+        <span class="tag">${isReq?'必答':'选答'}</span>
+        <span style="font-size:12px;color:var(--sub)">${esc(c.title)}</span>
+        ${grade?'':(isReq?'':`<label class="pickbox" style="margin-left:auto"><input type="checkbox" ${sel?'checked':''}
+           onchange="if(!mockCaseSel('${c.id}',this.checked)){this.checked=false;alert('最多选 2 道选答题')}"> 选这题</label>`)}
+      </div>
+      <div class="cbody" style="max-height:none">${mdHtml(c.front)}</div>
+      ${grade?`
+        <div class="cdivider">参考答案</div>
+        <div class="cbody cback">${mdHtml(c.back)}</div>
+        <div class="scorebar"><span style="font-size:12px;color:var(--sub)">自评得分</span>
+          ${[0,5,10,15,20,25].map(v=>`<button class="${sc===v?'on':''}" onclick="mockCaseScore('${c.id}',${v})">${v}</button>`).join('')}
+          <span style="font-size:11.5px;color:var(--sub);margin-left:4px">满分 25</span></div>`
+      :`<div class="tawrap"><textarea class="ta" placeholder="在这里写答题要点（考试时可以只写关键词，自评时对照踩分点）"
+          oninput="mockCaseInput('${c.id}',this.value)">${esc(M.caseAns[c.id]||'')}</textarea></div>`}
+    </div>`;
+  };
+  const need=[req?req.id:null,...M.caseSel].filter(Boolean);
+  const allScored=need.length && need.every(x=>M.caseScore[x]!=null);
+  main.innerHTML=`<div class="wrap">
+    <div class="topbar">
+      <span style="font-size:12.5px;color:var(--sub)">案例分析 · ${esc(M.caseYear)}</span>
+      <div style="flex:1"></div>
+      <span class="timer" id="mleft" style="display:inline-block">--:--</span>
+    </div>
+    ${stageBar(2)}
+    <p class="lead" style="margin-bottom:12px">试题一必答，再从试题二～五中选 2 道，共 3 题 × 25 分 = 75 分。
+      ${grade?'逐题对照参考答案给自己打分，打完自动进入论文。':'交卷后展开参考答案自评。'}</p>
+    ${arr.length?card(req,true)+opt.map(c=>card(c,false)).join(''):'<div class="empty">没有可用的案例套次</div>'}
+    <div class="foot stickyfoot">
+      <span style="font-size:11.5px;color:var(--sub)">${grade?`已评 ${need.filter(x=>M.caseScore[x]!=null).length}/${need.length} 题 · 合计 ${need.reduce((s,x)=>s+(M.caseScore[x]||0),0)} 分`
+        :`已选选答题 ${M.caseSel.length}/2`}</span>
+      ${grade?`<button class="btn primary" ${allScored?'':'disabled'} onclick="mockToPaper()">进入论文 →</button>`
+             :`<button class="btn primary" onclick="mockSubmitCase()">交卷</button>`}
+    </div>
+  </div>`;
+  if(!grade) startMockTimer('#mleft', M.d2, ()=>{ if(M&&M.stage===2) mockSubmitCase(true) });
+}
+function mockSubmitCase(auto){
+  if(!auto && M.caseSel.length!==2 && !confirm('还没选满 2 道选答题，确认交卷？')) return;
+  stopMockTimer(); M.caseGrade=true; saveMock(); renderMockCase(); main.scrollTop=0;
+}
+function mockCaseScore(id, v){
+  M.caseScore[id]=v;
+  const arr=mockCaseSet(), need=[arr[0]&&arr[0].id,...M.caseSel].filter(Boolean);
+  if(need.length && need.every(x=>M.caseScore[x]!=null)) M.s2=need.reduce((s,x)=>s+M.caseScore[x],0);
+  saveMock(); renderMockCase();
+}
+function mockToPaper(){
+  M.doneStages[2]=1; M.stage=3; if(!M.d3) M.d3=Date.now()+120*60000;
+  saveMock(); render(); main.scrollTop=0;
+}
+
+/* ---- 论文 ---- */
+function mockPaperList(){ return (paperSets().find(s=>s.y===M.paperYear)||paperSets()[0]||{arr:[]}).arr }
+function mockPaperText(v){ M.paperText=v; saveMock(); const el=$('#wc'); if(el) el.textContent='字数 '+cnCount(v) }
+function cnCount(s){ return (String(s||'').match(/[\u4e00-\u9fa5]/g)||[]).length }
+function renderMockPaper(){
+  const arr=mockPaperList(), grade=!!M.paperGrade;
+  const cur=arr.find(c=>c.id===M.paperPick);
+  main.innerHTML=`<div class="wrap">
+    <div class="topbar">
+      <span style="font-size:12.5px;color:var(--sub)">论文 · ${esc(M.paperYear)}</span>
+      <div style="flex:1"></div>
+      <span class="timer" id="mleft" style="display:inline-block">--:--</span>
+    </div>
+    ${stageBar(3)}
+    ${!grade?`
+      <p class="lead" style="margin-bottom:12px">4 道题选 1 道，120 分钟，正文不少于 2000 字（摘要 280–300 字）。先选题再动笔。</p>
+      ${arr.map(c=>`<div class="card pad" style="margin-bottom:12px;cursor:pointer;${M.paperPick===c.id?'border-color:#9db8f0;background:#f7faff':''}"
+          onclick="M.paperPick='${c.id}';saveMock();renderMockPaper()">
+          <div class="qmeta"><span class="tag">${M.paperPick===c.id?'已选':'题目'}</span>
+            <b style="font-size:13.5px">${esc(c.title)}</b></div>
+          <div class="cbody" style="max-height:180px;overflow:hidden;margin-top:8px">${mdHtml(c.front)}</div>
+        </div>`).join('')}
+      ${cur?`<div class="card pad" style="margin-top:6px">
+        <div class="qmeta"><span class="tag topic">作答区</span><b>${esc(cur.title)}</b></div>
+        <div class="tawrap"><textarea class="ta" style="min-height:300px"
+          placeholder="【摘要】…&#10;&#10;【正文】…"
+          oninput="mockPaperText(this.value)">${esc(M.paperText||'')}</textarea>
+          <div class="tameta"><span>摘要 + 正文都写在这里</span><span id="wc">字数 ${cnCount(M.paperText)}</span></div>
+        </div>
+      </div>`:'<div class="empty">先在上面选一道题</div>'}
+    `:`
+      <p class="lead" style="margin-bottom:12px">参考答案与写作要点，对照给自己打分（满分 75，及格 45）。</p>
+      <div class="card pad" style="margin-bottom:14px">
+        <div class="qmeta"><span class="tag topic">我的作答</span><b>${esc(cur?cur.title:'')}</b>
+          <span class="cmode">${cnCount(M.paperText)} 字</span></div>
+        <div class="cbody" style="max-height:220px;overflow:auto;white-space:pre-wrap">${esc(M.paperText||'（未作答）')}</div>
+      </div>
+      <div class="card pad">
+        <div class="qmeta"><span class="tag">写作要点</span><b>${esc(cur?cur.title:'')}</b></div>
+        <div class="cbody cback">${mdHtml(cur?cur.back:'')}</div>
+        <div class="scorebar"><span style="font-size:12px;color:var(--sub)">自评得分</span>
+          ${[0,30,45,55,60,65,70,75].map(v=>`<button class="${M.s3===v?'on':''}" onclick="mockPaperScore(${v})">${v}</button>`).join('')}</div>
+      </div>
+    `}
+    <div class="foot stickyfoot">
+      <span style="font-size:11.5px;color:var(--sub)">${grade?'评完分生成成绩单':(cur?'已选：'+esc(cur.title):'还没选题')}</span>
+      ${grade?`<button class="btn primary" ${M.s3!=null?'':'disabled'} onclick="mockFinish()">生成成绩单</button>`
+             :`<button class="btn primary" onclick="mockSubmitPaper()">交卷</button>`}
+    </div>
+  </div>`;
+  if(!grade) startMockTimer('#mleft', M.d3, ()=>{ if(M&&M.stage===3) mockSubmitPaper(true) });
+}
+function mockSubmitPaper(auto){
+  if(!M.paperPick){ if(!auto) alert('请先选择一道论文题'); return }
+  stopMockTimer(); M.paperGrade=true; saveMock(); renderMockPaper(); main.scrollTop=0;
+}
+function mockPaperScore(v){ M.s3=v; M.doneStages[3]=1; saveMock(); renderMockPaper() }
+function mockFinish(){
+  const h={ts:M.ts, paper:M.paper, caseYear:M.caseYear, paperYear:M.paperYear,
+           s1:M.s1, s2:M.s2, s3:M.s3, s1d:M.s1d,
+           pass:[M.s1,M.s2,M.s3].every(x=>x>=PASS)};
+  Store.data.mockHist=(Store.data.mockHist||[]).concat([h]).slice(-20);
+  M.stage=4; saveMock(); render(); main.scrollTop=0;
+}
+function renderMockResult(){
+  const s=[M.s1,M.s2,M.s3], pass=s.every(x=>x>=PASS);
+  main.innerHTML=`<div class="wrap">
+    <h1>模考成绩单</h1>
+    <p class="lead">${paperLabel(M.paper)} · 案例 ${esc(M.caseYear)} · 论文 ${esc(M.paperYear)} · ${new Date(M.ts).toLocaleString('zh-CN')}</p>
+    <div class="card pad" style="text-align:center;padding:26px 20px">
+      <div class="mscore" style="color:${pass?'var(--ok)':'var(--no)'};font-size:34px">${pass?'通过':'未通过'}</div>
+      <div style="font-size:12.5px;color:var(--sub);margin-top:6px">三科均需 ≥ ${PASS} 分</div>
+      <div class="stat3" style="margin-top:20px;text-align:left">
+        ${SUBJ.map((x,i)=>`<div class="stat"><b>${s[i]}<i>/75</i></b><span>${x.t}${s[i]>=PASS?'':' · 未及格'}</span></div>`).join('')}
+      </div>
+    </div>
+    <div class="sec-title">综合知识明细</div>
+    <div class="card pad" style="font-size:12.5px;line-height:2;color:#3d4450">
+      共 ${M.s1d?M.s1d.total:0} 题 · 答对 ${M.s1d?M.s1d.right:0} · 未答 ${M.s1d?M.s1d.blank:0} · 需人工复核 ${M.s1d?M.s1d.manual:0}<br>
+      案例与论文为自评分，仅供定位差距，不代表阅卷结果。
+    </div>
+    <div class="foot">
+      <button class="btn" onclick="M=null;Store.data.mock=null;Store.save();renderMock()">重新模考</button>
+      <button class="btn primary" onclick="go('stats')">看统计</button>
+    </div>
+  </div>`;
+}
+
 /* ---------------- 键盘 ---------------- */
 document.addEventListener('keydown', e=>{
   if(view!=='quiz'||!S) return;
   const k=e.key.toUpperCase();
   const q=S.pool[S.idx]; if(!q) return;
   const map={'1':'A','2':'B','3':'C','4':'D','A':'A','B':'B','C':'C','D':'D'};
-  if(map[k] && !(S.done[QID(q)]&&!S.exam)){ e.preventDefault(); pick(map[k]) }
+  if(map[k] && !(S.done[QID(q)]&&!S.exam)){
+    e.preventDefault();
+    const cur=S.picks[QID(q)]||[];
+    const gi=Math.max(0, q.groups.findIndex((g,i)=>!cur[i]));
+    pick(gi, map[k]);
+  }
   else if(e.key==='ArrowRight'||e.key==='Enter'){ e.preventDefault(); if(S.exam){ nextQ() } else nextQ() }
   else if(e.key==='ArrowLeft'){ e.preventDefault(); prevQ() }
   else if(k==='F'){ Store.toggleFav(QID(q)); renderQuiz() }
@@ -853,7 +1229,7 @@ document.addEventListener('keydown', e=>{
 
 /* ---------------- 启动 ---------------- */
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.view));
-Store.load(); render();
+Store.load(); M=Store.data.mock||null; render();
 if(location.hash==='#demo'){ startSession({pool:BANK.slice(0,5),mode:'order',paper:'2024下'}) }
 </script>
 </body>
